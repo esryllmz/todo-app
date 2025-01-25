@@ -8,7 +8,7 @@ export default function TodoApp() {
   // JSON Server'dan verileri düzenli olarak çek
   useEffect(() => {
     const fetchTodos = async () => {
-      const response = await fetch("http://localhost:5000/todos");
+      const response = await fetch("http://localhost:3000/todos");
       const data = await response.json();
       setTodos(data);
     };
@@ -17,7 +17,7 @@ export default function TodoApp() {
     fetchTodos();
 
     // Her 5 saniyede bir verileri güncelle
-    const interval = setInterval(fetchTodos, 5000);
+    const interval = setInterval(fetchTodos, 3000);
 
     // Bileşen temizlendiğinde interval'i temizle
     return () => clearInterval(interval);
@@ -32,7 +32,7 @@ export default function TodoApp() {
       completed: false,
     };
 
-    const response = await fetch("http://localhost:5000/todos", {
+    const response = await fetch("http://localhost:3000/todos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newTodoItem),
@@ -47,7 +47,7 @@ export default function TodoApp() {
 
   // Todo sil
   const deleteTodo = async (id) => {
-    const response = await fetch(`http://localhost:5000/todos/${id}`, {
+    const response = await fetch(`http://localhost:3000/todos/${id}`, {
       method: "DELETE",
     });
 
@@ -58,7 +58,7 @@ export default function TodoApp() {
 
   // Todo güncelle
   const toggleTodo = async (id, completed) => {
-    const response = await fetch(`http://localhost:5000/todos/${id}`, {
+    const response = await fetch(`http://localhost:3000/todos/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ completed: !completed }),
