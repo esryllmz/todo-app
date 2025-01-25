@@ -5,16 +5,23 @@ export default function TodoApp() {
   const [todos, setTodos] = useState([]);
   const [newTodo, setNewTodo] = useState("");
 
-  // JSON Server'dan verileri çek
+  // JSON Server'dan verileri düzenli olarak çek
   useEffect(() => {
-    fetchTodos();
-  }, []);
+    const fetchTodos = async () => {
+      const response = await fetch("http://localhost:5000/todos");
+      const data = await response.json();
+      setTodos(data);
+    };
 
-  const fetchTodos = async () => {
-    const response = await fetch("http://localhost:5000/todos");
-    const data = await response.json();
-    setTodos(data);
-  };
+    // İlk veri çekimi
+    fetchTodos();
+
+    // Her 5 saniyede bir verileri güncelle
+    const interval = setInterval(fetchTodos, 5000);
+
+    // Bileşen temizlendiğinde interval'i temizle
+    return () => clearInterval(interval);
+  }, []);
 
   // Yeni todo ekle
   const addTodo = async () => {
