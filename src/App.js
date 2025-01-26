@@ -1,74 +1,109 @@
 import React, { useState, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 
-export default function TodoApp() {
-  const [todos, setTodos] = useState([]);
-  const [newTodo, setNewTodo] = useState("");
+export default function App() {
+  const [todos, setTodos] = useState([]); // Todos state
+  const [newTodo, setNewTodo] = useState(""); // Yeni todo'nun state'i
 
-  // JSON Server'dan verileri düzenli olarak çek
+  // WebSocket bağlantısı kur
+  const socket = new WebSocket("ws://localhost:5000");
+
+  socket.onopen = () => {
+    console.log("WebSocket bağlantısı kuruldu.");
+  };
+
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    if (data.deleted) {
+      // Silinen todo'yu todos state'inden çıkar
+      setTodos((prevTodos) => prevTodos.filter((todo) => todo.id !== data.id));
+    } else {
+      // Yeni todo'yu todos state'ine ekle
+      setTodos((prevTodos) => [data, ...prevTodos]);
+    }
+  };
+
+  // Verileri API'den çekme (GET)
   useEffect(() => {
     const fetchTodos = async () => {
-      const response = await fetch("http://localhost:3000/todos");
-      const data = await response.json();
-      setTodos(data);
+      try {
+        const response = await fetch("http://localhost:5000/todos");
+        const data = await response.json();
+        setTodos(data); // Alınan veriyi todos state'ine atıyoruz
+      } catch (error) {
+        console.error("Error fetching todos:", error);
+      }
     };
 
-    // İlk veri çekimi
     fetchTodos();
+  }, []); // Component mount olduğunda çalışacak
 
-    // Her 5 saniyede bir verileri güncelle
-    const interval = setInterval(fetchTodos, 3000);
-
-    // Bileşen temizlendiğinde interval'i temizle
-    return () => clearInterval(interval);
-  }, []);
-
-  // Yeni todo ekle
+  // Yeni todo ekleme (POST)
   const addTodo = async () => {
     if (newTodo.trim() === "") return;
 
     const newTodoItem = {
-      title: newTodo,
-      completed: false,
+      title: newTodo, // title olarak kaydediyoruz
+      completed: false, // Başlangıçta tamamlanmamış olarak ayarlıyoruz
     };
 
-    const response = await fetch("http://localhost:3000/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newTodoItem),
-    });
+    try {
+      const response = await fetch("http://localhost:5000/todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newTodoItem),
+      });
 
-    if (response.ok) {
-      const addedTodo = await response.json();
-      setTodos([addedTodo, ...todos]);
-      setNewTodo(""); // Input'u temizle
+      if (response.ok) {
+        const addedTodo = await response.json();
+        setTodos((prevTodos) => [addedTodo, ...prevTodos]); // Yeni todo'yu listeye ekle
+        setNewTodo(""); // Input'u temizle
+      } else {
+        console.error("Error adding todo:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error:", error.message);
     }
   };
 
-  // Todo sil
+  // Todo silme (DELETE)
   const deleteTodo = async (id) => {
-    const response = await fetch(`http://localhost:3000/todos/${id}`, {
-      method: "DELETE",
-    });
+    try {
+      const response = await fetch(`http://localhost:5000/todos/${id}`, {
+        method: "DELETE",
+      });
 
-    if (response.ok) {
-      setTodos(todos.filter((todo) => todo.id !== id));
+      if (response.ok) {
+        // Silinen todo'yu todos state'inden çıkartıyoruz
+        setTodos((prevTodos) => prevTodos.filter((todo) => todo.id !== id));
+      } else {
+        console.error("Error deleting todo:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error:", error.message);
     }
   };
 
-  // Todo güncelle
+  // Todo güncelleme (PATCH)
   const toggleTodo = async (id, completed) => {
-    const response = await fetch(`http://localhost:3000/todos/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: !completed }),
-    });
+    try {
+      const response = await fetch(`http://localhost:5000/todos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: !completed }),
+      });
 
-    if (response.ok) {
-      const updatedTodo = await response.json();
-      setTodos(
-        todos.map((todo) => (todo.id === id ? updatedTodo : todo))
-      );
+      if (response.ok) {
+        const updatedTodo = await response.json();
+        setTodos((prevTodos) =>
+          prevTodos.map((todo) => (todo.id === id ? updatedTodo : todo))
+        );
+      } else {
+        console.error("Error updating todo:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error:", error.message);
     }
   };
 
@@ -92,31 +127,36 @@ export default function TodoApp() {
 
       {/* Todo Listesi */}
       <ul className="list-group">
-        {todos.map((todo) => (
-          <li
-            key={todo.id}
-            className={`list-group-item d-flex justify-content-between align-items-center ${
-              todo.completed ? "list-group-item-success" : ""
-            }`}
-          >
-            <span
-              onClick={() => toggleTodo(todo.id, todo.completed)}
-              style={{
-                textDecoration: todo.completed ? "line-through" : "none",
-                cursor: "pointer",
-              }}
-            >
-              {todo.title}
-            </span>
-            <button
-              onClick={() => deleteTodo(todo.id)}
-              className="btn btn-danger btn-sm"
-            >
-              Sil
-            </button>
-          </li>
-        ))}
-      </ul>
+  {todos.length === 0 ? (
+    <li className="list-group-item">Henüz todo eklenmedi.</li>
+  ) : (
+    todos.map((todo) => (
+      <li
+        key={todo.id} // Todo'nun id'sini key olarak kullanıyoruz
+        className={`list-group-item d-flex justify-content-between align-items-center ${
+          todo.completed ? "list-group-item-success" : ""
+        }`}
+      >
+        <span
+          onClick={() => toggleTodo(todo.id, todo.completed)} // Todo'nun tamamlanma durumunu değiştir
+          style={{
+            textDecoration: todo.completed ? "line-through" : "none",
+            cursor: "pointer",
+          }}
+        >
+          {todo.title}
+        </span>
+        <button
+          onClick={() => deleteTodo(todo.id)} // Silme butonuna tıklandığında todo'yu sil
+          className="btn btn-danger btn-sm"
+        >
+          Sil
+        </button>
+      </li>
+    ))
+  )}
+</ul>
+
     </div>
   );
 }
